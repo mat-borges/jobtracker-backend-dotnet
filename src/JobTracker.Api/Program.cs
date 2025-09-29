@@ -4,6 +4,7 @@ using JobTracker.Infrastructure.Persistence;
 using JobTracker.Infrastructure.Repositories;
 using JobTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,17 +13,43 @@ var builder = WebApplication.CreateBuilder(args);
 // Essential Services
 // ======================
 //DbContext
-builder.Services.AddDbContext<JobTrackerDbContext>();
-
-// Services
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddDbContext<JobTrackerDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Repositories
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Services
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+				Array.Empty<string>()
+		  }
+    });
+});
 
 builder.Services.AddCors((options) =>
     {
