@@ -1,5 +1,8 @@
 using System.Text;
+using JobTracker.Application.Interfaces;
 using JobTracker.Infrastructure.Persistence;
+using JobTracker.Infrastructure.Repositories;
+using JobTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -12,8 +15,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<JobTrackerDbContext>();
 
 // Services
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Repositories
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
