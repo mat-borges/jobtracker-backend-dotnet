@@ -1,8 +1,6 @@
 using JobTracker.Application.DTOs;
 using JobTracker.Application.Interfaces;
-using JobTracker.Infrastructure.Persistence;
 using JobTracker.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,18 +11,18 @@ namespace JobTracker.Infrastructure.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly JobTrackerDbContext _context;
+        private readonly IUserRepository _userRepository;
         private readonly IConfiguration _configuration;
 
-        public AuthService(JobTrackerDbContext context, IConfiguration configuration)
+        public AuthService(IUserRepository userRepository, IConfiguration configuration)
         {
-            _context = context;
+            _userRepository = userRepository;
             _configuration = configuration;
         }
 
         public async Task<User> RegisterAsync(UserRegisterDto registerDto)
         {
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == registerDto.Email);
+            var existingUser = await _userRepository.GetByEmailAsync(registerDto.Email);
             if (existingUser != null)
                 throw new Exception("User already exists");
 
@@ -32,17 +30,15 @@ namespace JobTracker.Infrastructure.Services
 
             var user = new User(Guid.NewGuid(), registerDto.Email, passwordHash);
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _userRepository.AddAsync(user);
+            await _userRepository.SaveChangesAsync();
 
             return user;
         }
 
         public async Task<AuthResponseDto> LoginAsync(UserLoginDto loginDto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email && u.IsActive);
-            if (user == null)
-                throw new Exception("Invalid credentials");
+            var user = await _userRepository.GetByEmailAsync(loginDto.Email) ?? throw new Exception("Invalid credentials");
 
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
                 throw new Exception("Invalid credentials");
@@ -61,9 +57,9 @@ namespace JobTracker.Infrastructure.Services
         {
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role)
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.Email, user.Email),
+                new(ClaimTypes.Role, user.Role)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
