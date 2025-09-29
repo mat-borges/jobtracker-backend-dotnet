@@ -10,9 +10,8 @@ namespace JobTracker.Infrastructure.Design
         {
             var builder = new DbContextOptionsBuilder<JobTrackerDbContext>();
 
-            // DEFAULT connection string used for migrations if nothing else provided.
             var conn = Environment.GetEnvironmentVariable("JOBTRACKER_CONNECTION")
-                       ?? "Host=localhost;Database=jobtracker;Username=postgres;Password=postgres";
+                       ?? "Host=localhost;Database=jobtracker;Username=postgres;Password=naolembro123";
 
             builder.UseNpgsql(conn, o => o.EnableRetryOnFailure());
 

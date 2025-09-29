@@ -1,4 +1,3 @@
-using System.Text;
 using JobTracker.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
