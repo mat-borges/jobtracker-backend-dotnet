@@ -3,39 +3,67 @@ using JobTracker.Domain.Enums;
 
 namespace JobTracker.UnitTests.Domain
 {
-    public class JobApplicationTests
-    {
-        [Fact]
-        public void Constructor_SetsDefaults_CreatedAndStatusAndStage()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            var applicationDate = DateOnly.FromDateTime(DateTime.UtcNow);
+	public class JobApplicationTests
+	{
+		[Fact]
+		public void Constructor_SetsDefaults_CreatedAndStatusAndStage()
+		{
+			// Arrange
+			var userId = Guid.NewGuid();
+			var applicationDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            // Act
-            var jobApp = new JobApplication(
-                userId,
-                applicationDate,
-                companyName: "ACME Corp",
-                jobTitle: "Backend Developer",
-                contractType: ContractType.CLT,
-                workStyle: WorkStyle.Remote,
-                workLocationState: "SP"
-            );
+			// Act
+			var jobApp = new JobApplication(
+				 userId,
+				 applicationDate,
+				 companyName: "ACME Corp",
+				 jobTitle: "Backend Developer",
+				 contractType: ContractType.CLT,
+				 workStyle: WorkStyle.Remote,
+				 workLocationState: "SP"
+			);
 
-            // Assert - defaults
-            Assert.Equal(ApplicationStage.Applied, jobApp.CurrentStage);
-            Assert.Equal(ApplicationStatus.InProgress, jobApp.Status);
+			// Assert - defaults
+			Assert.Equal(ApplicationStage.Applied, jobApp.CurrentStage);
+			Assert.Equal(ApplicationStatus.InProgress, jobApp.Status);
 
-            // Assert - properties propagated
-            Assert.Equal(userId, jobApp.UserId);
-            Assert.Equal(applicationDate, jobApp.ApplicationDate);
-            Assert.Equal("ACME Corp", jobApp.CompanyName);
-            Assert.Equal("Backend Developer", jobApp.JobTitle);
-            Assert.Equal("SP", jobApp.WorkLocationState);
+			// Assert - properties propagated
+			Assert.Equal(userId, jobApp.UserId);
+			Assert.Equal(applicationDate, jobApp.ApplicationDate);
+			Assert.Equal("ACME Corp", jobApp.CompanyName);
+			Assert.Equal("Backend Developer", jobApp.JobTitle);
+			Assert.Equal("SP", jobApp.WorkLocationState);
 
-            // Assert - timestamps set (CreatedAt <= UpdatedAt)
-            Assert.True(jobApp.CreatedAt <= jobApp.UpdatedAt, "CreatedAt should be less or equal to UpdatedAt");
-        }
+			// Assert - timestamps set (CreatedAt <= UpdatedAt)
+			Assert.True(jobApp.CreatedAt <= jobApp.UpdatedAt, "CreatedAt should be less or equal to UpdatedAt");
+		}
+
+		[Fact]
+		public void ChangeStage_UpdatesStageAndNotes()
+		{
+			// Arrange
+			var userId = Guid.NewGuid();
+			var jobApp = new JobApplication(
+				 userId,
+				 DateOnly.FromDateTime(DateTime.UtcNow),
+				 "ACME Corp",
+				 "Backend Developer",
+				 ContractType.CLT,
+				 WorkStyle.Remote,
+				 "SP"
+			);
+
+			var newStage = ApplicationStage.RHInterview;
+			var note = "Scheduled first interview";
+			var oldUpdatedAt = jobApp.UpdatedAt;
+
+			// Act
+			jobApp.ChangeStage(newStage, note);
+
+			// Assert
+			Assert.Equal(newStage, jobApp.CurrentStage);
+			Assert.Equal(note, jobApp.Notes);
+			Assert.True(jobApp.UpdatedAt > oldUpdatedAt, "UpdatedAt should be updated after changing stage");
+		}
     }
 }
