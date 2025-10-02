@@ -4,6 +4,7 @@ using JobTracker.Infrastructure.Persistence;
 using JobTracker.Infrastructure.Repositories;
 using JobTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -129,6 +130,7 @@ public partial class Program
             app.UseHttpsRedirection();
         }
 
+        app.UseMiddleware<ExceptionHandlerMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
