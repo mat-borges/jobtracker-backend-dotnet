@@ -1,6 +1,5 @@
 using JobTracker.Application.DTOs;
 using JobTracker.Application.Interfaces;
-using JobTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
