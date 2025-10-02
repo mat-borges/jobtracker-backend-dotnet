@@ -16,13 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<JobTrackerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
-
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJobApplicationService, JobApplicationService>();
+
+// Repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
