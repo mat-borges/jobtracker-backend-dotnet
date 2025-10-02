@@ -1,50 +1,73 @@
 using System.Text;
 using FluentValidation;
+using JobTracker.Api.Middleware;
 using JobTracker.Application.Common.Validators;
+using JobTracker.Application.DTOs;
 using JobTracker.Application.Interfaces;
 using JobTracker.Infrastructure.Persistence;
 using JobTracker.Infrastructure.Repositories;
 using JobTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace JobTracker.Api;
+
 public partial class Program
 {
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        ConfigureServices(builder);
+
+        var app = builder.Build();
+
+        ConfigureMiddleware(app);
+
+        app.Run();
+    }
+
+    private static void ConfigureServices(WebApplicationBuilder builder)
+    {
+        var configuration = builder.Configuration;
+        var environment = builder.Environment;
+
         // ======================
-        // Essential Services
+        // DbContext
         // ======================
-        //DbContext
         builder.Services.AddDbContext<JobTrackerDbContext>(options =>
         {
-            var env = builder.Environment.EnvironmentName;
-
-            if (env == "IntegrationTest")
-            {
-                // Use InMemory for Integration Tests
-            }
+            if (environment.EnvironmentName == "IntegrationTest")
+                options.UseInMemoryDatabase("IntegrationTestDb");
             else
-            {
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-            }
+                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
         });
 
-        // Services
+        // ======================
+        // Repositories & Services
+        // ======================
         builder.Services.AddScoped<IAuthService, AuthService>();
-        builder.Services.AddScoped<IJobApplicationService, JobApplicationService>();
-
-        // Repositories
         builder.Services.AddScoped<IUserRepository, UserRepository>();
         builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
 
+        builder.Services.AddScoped<IJobApplicationService, JobApplicationService>(sp =>
+        {
+            var repo = sp.GetRequiredService<IJobApplicationRepository>();
+            var createValidator = sp.GetRequiredService<IValidator<JobApplicationCreateDto>>();
+            var updateValidator = sp.GetRequiredService<IValidator<JobApplicationUpdateDto>>();
+            return new JobApplicationService(repo, createValidator, updateValidator);
+        });
+
+        // ======================
+        // Controllers & Validation
+        // ======================
         builder.Services.AddControllers();
-        // Register FluentValidation validators automatically
         builder.Services.AddValidatorsFromAssemblyContaining<JobApplicationCreateValidator>();
+
+        // ======================
+        // Swagger
+        // ======================
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
         {
@@ -59,41 +82,44 @@ public partial class Program
 
             c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
             {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                    {
+                        Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                        {
+                            Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
                 }
-            },
-                Array.Empty<string>()
-          }
             });
         });
 
-        builder.Services.AddCors((options) =>
-            {
-                options.AddPolicy("DevCors", (corsBuilder) =>
-                    {
-                        corsBuilder.WithOrigins("http://localhost:4200", "http://localhost:3000", "http://localhost:8000")
-                            .AllowAnyMethod()
-                            .AllowAnyHeader()
-                            .AllowCredentials();
-                    });
-                options.AddPolicy("ProdCors", (corsBuilder) =>
-                    {
-                        corsBuilder.WithOrigins("https://myProductionSite.com")
-                            .AllowAnyMethod()
-                            .AllowAnyHeader()
-                            .AllowCredentials();
-                    });
-            });
+        // ======================
+        // CORS
+        // ======================
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("DevCors", cors =>
+                cors.WithOrigins("http://localhost:4200", "http://localhost:3000", "http://localhost:8000")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials());
+
+            options.AddPolicy("ProdCors", cors =>
+                cors.WithOrigins("https://myProductionSite.com")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials());
+        });
 
         // ======================
-        // Config JWT Authentication
+        // JWT Authentication
         // ======================
+        var jwtSection = configuration.GetSection("Jwt");
+        var key = Encoding.UTF8.GetBytes(jwtSection["Key"]!);
+
         builder.Services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -107,18 +133,15 @@ public partial class Program
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+                ValidIssuer = jwtSection["Issuer"],
+                ValidAudience = jwtSection["Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(key)
             };
         });
+    }
 
-        // ======================
-        // Build pipeline
-        // ======================
-        var app = builder.Build();
-
+    private static void ConfigureMiddleware(WebApplication app)
+    {
         if (app.Environment.IsDevelopment())
         {
             app.UseCors("DevCors");
@@ -135,7 +158,5 @@ public partial class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
-        app.Run();
     }
 }
-
