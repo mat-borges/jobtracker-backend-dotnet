@@ -5,16 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Infrastructure.Repositories
 {
-    public class UserRepository : IUserRepository
+    public class UserRepository(JobTrackerDbContext context) : IUserRepository
     {
-        private readonly JobTrackerDbContext _context;
+        private readonly JobTrackerDbContext _context = context;
 
-        public UserRepository(JobTrackerDbContext context)
-        {
-            _context = context;
-        }
-
-        public async Task<User?> GetByEmailAsync(string email)
+		public async Task<User?> GetByEmailAsync(string email)
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
         }

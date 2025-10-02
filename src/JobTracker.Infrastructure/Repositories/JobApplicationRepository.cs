@@ -5,16 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Infrastructure.Repositories
 {
-    public class JobApplicationRepository : IJobApplicationRepository
+    public class JobApplicationRepository(JobTrackerDbContext context) : IJobApplicationRepository
     {
-        private readonly JobTrackerDbContext _context;
+        private readonly JobTrackerDbContext _context = context;
 
-        public JobApplicationRepository(JobTrackerDbContext context)
-        {
-            _context = context;
-        }
-
-        public async Task AddAsync(JobApplication application)
+		public async Task AddAsync(JobApplication application)
         {
             _context.JobApplications.Add(application);
             await _context.SaveChangesAsync();

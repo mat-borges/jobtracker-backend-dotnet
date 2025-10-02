@@ -9,18 +9,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace JobTracker.Infrastructure.Services
 {
-    public class AuthService : IAuthService
+    public class AuthService(IUserRepository userRepository, IConfiguration configuration) : IAuthService
     {
-        private readonly IUserRepository _userRepository;
-        private readonly IConfiguration _configuration;
+        private readonly IUserRepository _userRepository = userRepository;
+        private readonly IConfiguration _configuration = configuration;
 
-        public AuthService(IUserRepository userRepository, IConfiguration configuration)
-        {
-            _userRepository = userRepository;
-            _configuration = configuration;
-        }
-
-        public async Task<User> RegisterAsync(UserRegisterDto registerDto)
+		public async Task<User> RegisterAsync(UserRegisterDto registerDto)
         {
             var existingUser = await _userRepository.GetByEmailAsync(registerDto.Email);
             if (existingUser != null)

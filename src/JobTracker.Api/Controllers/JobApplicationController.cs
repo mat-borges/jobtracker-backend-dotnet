@@ -9,16 +9,11 @@ namespace JobTracker.Api.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class JobApplicationsController : ControllerBase
+    public class JobApplicationsController(IJobApplicationService service) : ControllerBase
     {
-        private readonly IJobApplicationService _service;
+        private readonly IJobApplicationService _service = service;
 
-        public JobApplicationsController(IJobApplicationService service)
-        {
-            _service = service;
-        }
-
-        [HttpGet]
+		[HttpGet]
         public async Task<IActionResult> GetAll()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
