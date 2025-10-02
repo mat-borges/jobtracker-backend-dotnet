@@ -68,7 +68,7 @@ namespace JobTracker.Infrastructure.Services
             if (!result.IsValid)
                 throw new JobValidationException(result.Errors.Select(e => e.ErrorMessage));
 
-            var app = await _repository.GetByIdAsync(id) ?? throw new Exception("Application not found");
+            var app = await _repository.GetByIdAsync(id) ?? throw new KeyNotFoundException("Application not found");
 
             app.UpdateFromDto(
                 dto.CompanyName,
@@ -90,7 +90,7 @@ namespace JobTracker.Infrastructure.Services
 
         public async Task DeleteAsync(Guid id)
         {
-            var app = await _repository.GetByIdAsync(id) ?? throw new Exception("Application not found");
+            var app = await _repository.GetByIdAsync(id) ?? throw new KeyNotFoundException("Application not found");
 			await _repository.DeleteAsync(app);
         }
 
