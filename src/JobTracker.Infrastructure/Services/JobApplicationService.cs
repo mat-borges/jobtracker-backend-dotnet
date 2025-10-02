@@ -4,16 +4,11 @@ using JobTracker.Domain.Entities;
 
 namespace JobTracker.Infrastructure.Services
 {
-    public class JobApplicationService : IJobApplicationService
+    public class JobApplicationService(IJobApplicationRepository repository) : IJobApplicationService
     {
-        private readonly IJobApplicationRepository _repository;
+        private readonly IJobApplicationRepository _repository = repository;
 
-        public JobApplicationService(IJobApplicationRepository repository)
-        {
-            _repository = repository;
-        }
-
-        public async Task<JobApplicationResponseDto> CreateAsync(Guid userId, JobApplicationCreateDto dto)
+		public async Task<JobApplicationResponseDto> CreateAsync(Guid userId, JobApplicationCreateDto dto)
         {
             var application = new JobApplication(
                 userId,
@@ -34,6 +29,12 @@ namespace JobTracker.Infrastructure.Services
                 dto.Notes
             );
 
+            if (dto.CurrentStage.HasValue)
+                application.ChangeStage(dto.CurrentStage.Value);
+
+            if (dto.Status.HasValue)
+                application.ChangeStatus(dto.Status.Value);
+
             await _repository.AddAsync(application);
 
             return ToResponseDto(application);
@@ -42,7 +43,7 @@ namespace JobTracker.Infrastructure.Services
         public async Task<List<JobApplicationResponseDto>> GetAllByUserAsync(Guid userId)
         {
             var list = await _repository.GetAllByUserAsync(userId);
-            return list.Select(ToResponseDto).ToList();
+            return [.. list.Select(ToResponseDto)];
         }
 
         public async Task<JobApplicationResponseDto?> GetByIdAsync(Guid id)
@@ -54,7 +55,21 @@ namespace JobTracker.Infrastructure.Services
         public async Task UpdateAsync(Guid id, JobApplicationUpdateDto dto)
         {
             var app = await _repository.GetByIdAsync(id) ?? throw new Exception("Application not found");
-			app.UpdateFromDto(dto.CompanyName, dto.JobTitle, dto.SalaryExpectation, dto.JobOfferUrl, dto.Source, dto.Notes);
+
+            app.UpdateFromDto(
+                dto.CompanyName,
+                dto.JobTitle,
+                dto.SalaryExpectation,
+                dto.JobOfferUrl,
+                dto.Source,
+                dto.Notes
+            );
+
+            if (dto.CurrentStage.HasValue)
+                app.ChangeStage(dto.CurrentStage.Value);
+
+            if (dto.Status.HasValue)
+                app.ChangeStatus(dto.Status.Value);
 
             await _repository.UpdateAsync(app);
         }

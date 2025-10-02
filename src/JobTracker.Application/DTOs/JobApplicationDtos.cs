@@ -16,6 +16,8 @@ namespace JobTracker.Application.DTOs
         public decimal? SalaryExpectation { get; set; }
         public string? Source { get; set; }
         public string? Notes { get; set; }
+        public ApplicationStatus? Status { get; set; } = ApplicationStatus.InProgress;
+        public ApplicationStage? CurrentStage { get; set; } = ApplicationStage.Applied;
     }
 
     public class JobApplicationUpdateDto
@@ -26,6 +28,8 @@ namespace JobTracker.Application.DTOs
         public string? JobOfferUrl { get; set; }
         public string? Source { get; set; }
         public string? Notes { get; set; }
+        public ApplicationStage? CurrentStage { get; set; }
+        public ApplicationStatus? Status { get; set; }
     }
 
     public class JobApplicationResponseDto
