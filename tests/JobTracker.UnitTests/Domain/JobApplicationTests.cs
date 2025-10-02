@@ -93,5 +93,49 @@ namespace JobTracker.UnitTests.Domain
 			Assert.Equal(note, jobApp.Notes);
 			Assert.True(jobApp.UpdatedAt > oldUpdatedAt, "UpdatedAt should be updated after changing status");
 		}
+
+		[Fact]
+		public void UpdateFromDto_UpdatesFieldsCorrectly()
+		{
+			// Arrange
+			var userId = Guid.NewGuid();
+			var jobApp = new JobApplication(
+				 userId,
+				 DateOnly.FromDateTime(DateTime.UtcNow),
+				 "Globex Corp",
+				 "Full Stack Developer",
+				 ContractType.PJ,
+				 WorkStyle.Hybrid,
+				 "RJ"
+			);
+
+			var oldUpdatedAt = jobApp.UpdatedAt;
+
+			var newCompany = "Initech";
+			var newJobTitle = "Backend Engineer";
+			decimal? newSalary = 12000;
+			var newJobOfferUrl = "https://jobs.com/offer123";
+			var newSource = "LinkedIn";
+			var newNotes = "Strong candidate";
+
+			// Act
+			jobApp.UpdateFromDto(
+				 companyName: newCompany,
+				 jobTitle: newJobTitle,
+				 salary: newSalary,
+				 jobOfferUrl: newJobOfferUrl,
+				 source: newSource,
+				 notes: newNotes
+			);
+
+			// Assert
+			Assert.Equal(newCompany, jobApp.CompanyName);
+			Assert.Equal(newJobTitle, jobApp.JobTitle);
+			Assert.Equal(newSalary, jobApp.SalaryExpectation);
+			Assert.Equal(newJobOfferUrl, jobApp.JobOfferUrl);
+			Assert.Equal(newSource, jobApp.Source);
+			Assert.Equal(newNotes, jobApp.Notes);
+			Assert.True(jobApp.UpdatedAt > oldUpdatedAt, "UpdatedAt should be updated after updating fields");
+		}
     }
 }
