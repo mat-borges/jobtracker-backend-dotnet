@@ -277,5 +277,5 @@ namespace JobTracker.UnitTests.Application
 			_repositoryMock.Verify(r => r.GetByIdAsync(appId), Times.Once);
 			_repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<JobApplication>()), Times.Never);
 		}
-    }
+	}
 }
