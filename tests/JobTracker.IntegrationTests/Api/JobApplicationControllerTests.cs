@@ -13,7 +13,8 @@ namespace JobTracker.IntegrationTests.Api
         private readonly string _email = "testuser@example.com";
         private readonly string _password = "StrongPass123!";
 
-        // Setup inicial: registra e autentica usuário
+        #region Helpers
+
         private async Task AuthenticateAsync()
         {
             await RegisterUserAsync(_email, _password);
@@ -21,44 +22,55 @@ namespace JobTracker.IntegrationTests.Api
             AuthenticateClient(token);
         }
 
+        private async Task<JobApplicationResponseDto> CreateSampleJobApplicationAsync(
+            string title = "Backend Developer",
+            string company = "Tech Corp",
+            ApplicationStage? stage = null,
+            ApplicationStatus? status = null)
+        {
+            var dto = new JobApplicationCreateDto
+            {
+                JobTitle = title,
+                CompanyName = company,
+                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ContractType = ContractType.CLT,
+                WorkStyle = WorkStyle.Remote,
+                CurrentStage = stage,
+                Status = status
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/jobapplications", dto);
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<JobApplicationResponseDto>()
+                ?? throw new InvalidOperationException("Failed to deserialize JobApplicationResponseDto.");
+            return result;
+        }
+
+        #endregion
+
+        #region Success Scenarios
+
         [Fact]
         public async Task CreateJobApplication_ShouldReturnCreated()
         {
             await AuthenticateAsync();
 
-            var newJobApp = new JobApplicationCreateDto
-            {
-                JobTitle = "Backend Developer",
-                CompanyName = "Tech Corp",
-                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                ContractType = ContractType.CLT,
-                WorkStyle = WorkStyle.Remote
-            };
+            var created = await CreateSampleJobApplicationAsync(
+                stage: ApplicationStage.Applied,
+                status: ApplicationStatus.InProgress);
 
-            var response = await _client.PostAsJsonAsync("/api/jobapplications", newJobApp);
-            response.EnsureSuccessStatusCode();
-
-            var created = await response.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
             Assert.NotNull(created);
-            Assert.Equal(newJobApp.JobTitle, created.JobTitle);
-            Assert.Equal(newJobApp.CompanyName, created.CompanyName);
+            Assert.Equal("Backend Developer", created.JobTitle);
+            Assert.Equal("Tech Corp", created.CompanyName);
+            Assert.Equal(ApplicationStage.Applied, created.CurrentStage);
+            Assert.Equal(ApplicationStatus.InProgress, created.Status);
         }
 
         [Fact]
         public async Task GetAllJobApplications_ShouldReturnList()
         {
             await AuthenticateAsync();
-
-            // Criar uma aplicação para garantir que há dados
-            var newJobApp = new JobApplicationCreateDto
-            {
-                JobTitle = "Frontend Developer",
-                CompanyName = "Web Corp",
-                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                ContractType = ContractType.CLT,
-                WorkStyle = WorkStyle.Hybrid
-            };
-            await _client.PostAsJsonAsync("/api/jobapplications", newJobApp);
+            await CreateSampleJobApplicationAsync(title: "Frontend Developer", company: "Web Corp");
 
             var response = await _client.GetAsync("/api/jobapplications");
             response.EnsureSuccessStatusCode();
@@ -72,17 +84,7 @@ namespace JobTracker.IntegrationTests.Api
         public async Task GetJobApplicationById_ShouldReturnApplication()
         {
             await AuthenticateAsync();
-
-            var newJobApp = new JobApplicationCreateDto
-            {
-                JobTitle = "QA Engineer",
-                CompanyName = "Test Corp",
-                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                ContractType = ContractType.CLT,
-                WorkStyle = WorkStyle.Local
-            };
-            var createResponse = await _client.PostAsJsonAsync("/api/jobapplications", newJobApp);
-            var created = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
+            var created = await CreateSampleJobApplicationAsync(title: "QA Engineer", company: "Test Corp");
 
             var response = await _client.GetAsync($"/api/jobapplications/{created.Id}");
             response.EnsureSuccessStatusCode();
@@ -90,24 +92,14 @@ namespace JobTracker.IntegrationTests.Api
             var fetched = await response.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
             Assert.NotNull(fetched);
             Assert.Equal(created.Id, fetched.Id);
-            Assert.Equal(newJobApp.JobTitle, fetched.JobTitle);
+            Assert.Equal("QA Engineer", fetched.JobTitle);
         }
 
         [Fact]
         public async Task UpdateJobApplication_ShouldReturnNoContent()
         {
             await AuthenticateAsync();
-
-            var newJobApp = new JobApplicationCreateDto
-            {
-                JobTitle = "DevOps Engineer",
-                CompanyName = "Ops Corp",
-                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                ContractType = ContractType.CLT,
-                WorkStyle = WorkStyle.Remote
-            };
-            var createResponse = await _client.PostAsJsonAsync("/api/jobapplications", newJobApp);
-            var created = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
+            var created = await CreateSampleJobApplicationAsync(title: "DevOps Engineer", company: "Ops Corp");
 
             var updateDto = new JobApplicationUpdateDto
             {
@@ -116,7 +108,9 @@ namespace JobTracker.IntegrationTests.Api
                 SalaryExpectation = 120000m,
                 JobOfferUrl = "http://example.com/job",
                 Source = "LinkedIn",
-                Notes = "Updated notes"
+                Notes = "Updated notes",
+                CurrentStage = ApplicationStage.RHInterview,
+                Status = ApplicationStatus.InProgress
             };
 
             var response = await _client.PutAsJsonAsync($"/api/jobapplications/{created.Id}", updateDto);
@@ -124,26 +118,18 @@ namespace JobTracker.IntegrationTests.Api
 
             var getResponse = await _client.GetAsync($"/api/jobapplications/{created.Id}");
             var updated = await getResponse.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
-            Assert.Equal(updateDto.JobTitle, updated.JobTitle);
+            Assert.Equal(updateDto.JobTitle, updated!.JobTitle);
             Assert.Equal(updateDto.CompanyName, updated.CompanyName);
             Assert.Equal(updateDto.Notes, updated.Notes);
+            Assert.Equal(ApplicationStage.RHInterview, updated.CurrentStage);
+            Assert.Equal(ApplicationStatus.InProgress, updated.Status);
         }
 
         [Fact]
         public async Task DeleteJobApplication_ShouldReturnNoContent()
         {
             await AuthenticateAsync();
-
-            var newJobApp = new JobApplicationCreateDto
-            {
-                JobTitle = "Product Manager",
-                CompanyName = "Product Corp",
-                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                ContractType = ContractType.CLT,
-                WorkStyle = WorkStyle.Hybrid
-            };
-            var createResponse = await _client.PostAsJsonAsync("/api/jobapplications", newJobApp);
-            var created = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponseDto>();
+            var created = await CreateSampleJobApplicationAsync(title: "Product Manager", company: "Product Corp");
 
             var response = await _client.DeleteAsync($"/api/jobapplications/{created.Id}");
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -151,5 +137,83 @@ namespace JobTracker.IntegrationTests.Api
             var getResponse = await _client.GetAsync($"/api/jobapplications/{created.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
         }
+
+        #endregion
+
+        #region Failure / Validation Scenarios
+
+        [Fact]
+        public async Task CreateJobApplication_InvalidData_ShouldReturnBadRequest()
+        {
+            await AuthenticateAsync();
+
+            var invalidDto = new JobApplicationCreateDto
+            {
+                JobTitle = "", // obrigatório
+                CompanyName = "", // obrigatório
+                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), // futuro
+                ContractType = ContractType.CLT,
+                WorkStyle = WorkStyle.Remote
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/jobapplications", invalidDto);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdateJobApplication_NonExistentId_ShouldReturnNotFound()
+        {
+            await AuthenticateAsync();
+
+            var updateDto = new JobApplicationUpdateDto
+            {
+                JobTitle = "Non-existent Job",
+                CompanyName = "Nowhere",
+                CurrentStage = ApplicationStage.Applied,
+                Status = ApplicationStatus.InProgress
+            };
+
+            var response = await _client.PutAsJsonAsync($"/api/jobapplications/{Guid.NewGuid()}", updateDto);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteJobApplication_NonExistentId_ShouldReturnNotFound()
+        {
+            await AuthenticateAsync();
+
+            var response = await _client.DeleteAsync($"/api/jobapplications/{Guid.NewGuid()}");
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetJobApplicationById_NonExistentId_ShouldReturnNotFound()
+        {
+            await AuthenticateAsync();
+
+            var response = await _client.GetAsync($"/api/jobapplications/{Guid.NewGuid()}");
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task AccessEndpoints_WithoutAuthentication_ShouldReturnUnauthorized()
+        {
+            // Não autentica o client
+
+            var responseGet = await _client.GetAsync("/api/jobapplications");
+            Assert.Equal(HttpStatusCode.Unauthorized, responseGet.StatusCode);
+
+            var responsePost = await _client.PostAsJsonAsync("/api/jobapplications", new JobApplicationCreateDto
+            {
+                JobTitle = "Job",
+                CompanyName = "Company",
+                ApplicationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ContractType = ContractType.CLT,
+                WorkStyle = WorkStyle.Remote
+            });
+            Assert.Equal(HttpStatusCode.Unauthorized, responsePost.StatusCode);
+        }
+
+        #endregion
     }
 }
