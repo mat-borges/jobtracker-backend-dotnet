@@ -1,9 +1,8 @@
-using JobTracker.Application.Interfaces;
 using JobTracker.Domain.Enums;
 
 namespace JobTracker.Application.DTOs
 {
-    public class JobApplicationCreateDto : IJobApplicationDto
+    public class JobApplicationCreateDto
     {
         public DateOnly ApplicationDate { get; set; }
         public string CompanyName { get; set; } = string.Empty;
@@ -21,7 +20,7 @@ namespace JobTracker.Application.DTOs
         public ApplicationStatus? Status { get; set; } = ApplicationStatus.InProgress;
     }
 
-    public class JobApplicationUpdateDto : IJobApplicationUpdateDto
+    public class JobApplicationUpdateDto
     {
         public DateOnly? ApplicationDate { get; set; }
         public string? CompanyName { get; set; }

@@ -1,13 +1,13 @@
+
 namespace JobTracker.Application.Common.Exceptions
 {
-    public class ValidationException(List<string> errors) : Exception("One or more validation errors occurred.")
+    public class JobValidationException(IEnumerable<string> errors) : Exception(CreateMessage(errors))
     {
-		public List<string> Errors { get; } = errors;
+		public List<string> Errors { get; } = [.. errors];
 
-		public object ToResponseObject() => new
+		private static string CreateMessage(IEnumerable<string> errors)
         {
-            message = Message,
-            errors = Errors
-        };
+            return "Validation failed: " + string.Join("; ", errors);
+        }
     }
 }

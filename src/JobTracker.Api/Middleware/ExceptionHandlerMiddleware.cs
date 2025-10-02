@@ -23,10 +23,10 @@ namespace JobTracker.Api.Middleware
 				context.Response.StatusCode = StatusCodes.Status403Forbidden;
 				await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
 			}
-			catch (ValidationException ex)
+			catch (JobValidationException ex)
 			{
 				context.Response.StatusCode = StatusCodes.Status400BadRequest;
-				await context.Response.WriteAsync(JsonSerializer.Serialize(ex.ToResponseObject()));
+				await context.Response.WriteAsync(JsonSerializer.Serialize(new { errors = ex.Errors }));
 			}
 			catch (Exception ex)
 			{

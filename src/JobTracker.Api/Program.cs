@@ -1,4 +1,6 @@
 using System.Text;
+using FluentValidation;
+using JobTracker.Application.Common.Validators;
 using JobTracker.Application.Interfaces;
 using JobTracker.Infrastructure.Persistence;
 using JobTracker.Infrastructure.Repositories;
@@ -14,9 +16,6 @@ public partial class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
-
-        // Make Program class public for integration tests
-
         // ======================
         // Essential Services
         // ======================
@@ -44,6 +43,8 @@ public partial class Program
         builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
 
         builder.Services.AddControllers();
+        // Register FluentValidation validators automatically
+        builder.Services.AddValidatorsFromAssemblyContaining<JobApplicationCreateValidator>();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
         {

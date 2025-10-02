@@ -1,15 +1,24 @@
+using FluentValidation;
 using JobTracker.Application.DTOs;
 using JobTracker.Application.Interfaces;
 using JobTracker.Domain.Entities;
+using JobTracker.Application.Common.Exceptions;
 
 namespace JobTracker.Infrastructure.Services
 {
-    public class JobApplicationService(IJobApplicationRepository repository) : IJobApplicationService
+    public class JobApplicationService(IJobApplicationRepository repository, IValidator<JobApplicationCreateDto> createValidator, IValidator<JobApplicationUpdateDto> updateValidator) : IJobApplicationService
     {
         private readonly IJobApplicationRepository _repository = repository;
+        private readonly IValidator<JobApplicationCreateDto> _createValidator = createValidator;
+        private readonly IValidator<JobApplicationUpdateDto> _updateValidator = updateValidator;
 
 		public async Task<JobApplicationResponseDto> CreateAsync(Guid userId, JobApplicationCreateDto dto)
         {
+            var result = await _createValidator.ValidateAsync(dto);
+
+            if (!result.IsValid)
+                throw new JobValidationException(result.Errors.Select(e => e.ErrorMessage));
+
             var application = new JobApplication(
                 userId,
                 dto.ApplicationDate,
@@ -54,6 +63,11 @@ namespace JobTracker.Infrastructure.Services
 
         public async Task UpdateAsync(Guid id, JobApplicationUpdateDto dto)
         {
+            var result = await _updateValidator.ValidateAsync(dto);
+
+            if (!result.IsValid)
+                throw new JobValidationException(result.Errors.Select(e => e.ErrorMessage));
+
             var app = await _repository.GetByIdAsync(id) ?? throw new Exception("Application not found");
 
             app.UpdateFromDto(
