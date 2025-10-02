@@ -65,5 +65,33 @@ namespace JobTracker.UnitTests.Domain
 			Assert.Equal(note, jobApp.Notes);
 			Assert.True(jobApp.UpdatedAt > oldUpdatedAt, "UpdatedAt should be updated after changing stage");
 		}
+
+		[Fact]
+		public void ChangeStatus_UpdatesStatusAndNotes()
+		{
+			// Arrange
+			var userId = Guid.NewGuid();
+			var jobApp = new JobApplication(
+				 userId,
+				 DateOnly.FromDateTime(DateTime.UtcNow),
+				 "Globex Corp",
+				 "Full Stack Developer",
+				 ContractType.PJ,
+				 WorkStyle.Hybrid,
+				 "RJ"
+			);
+
+			var newStatus = ApplicationStatus.Closed;
+			var note = "Position filled by another candidate";
+			var oldUpdatedAt = jobApp.UpdatedAt;
+
+			// Act
+			jobApp.ChangeStatus(newStatus, note);
+
+			// Assert
+			Assert.Equal(newStatus, jobApp.Status);
+			Assert.Equal(note, jobApp.Notes);
+			Assert.True(jobApp.UpdatedAt > oldUpdatedAt, "UpdatedAt should be updated after changing status");
+		}
     }
 }
