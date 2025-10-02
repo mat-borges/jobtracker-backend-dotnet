@@ -1,5 +1,7 @@
 using Xunit;
 using Moq;
+using FluentValidation;
+using FluentValidation.Results;
 using JobTracker.Application.Interfaces;
 using JobTracker.Domain.Entities;
 using JobTracker.Infrastructure.Services;
@@ -12,17 +14,34 @@ namespace JobTracker.UnitTests.Application
 	{
 		private readonly IJobApplicationService _service;
 		private readonly Mock<IJobApplicationRepository> _repositoryMock;
+		private readonly Mock<IValidator<JobApplicationCreateDto>> _createValidatorMock;
+		private readonly Mock<IValidator<JobApplicationUpdateDto>> _updateValidatorMock;
 
 		public JobApplicationServiceTests()
 		{
 			_repositoryMock = new Mock<IJobApplicationRepository>();
-			_service = new JobApplicationService(_repositoryMock.Object);
+			_createValidatorMock = new Mock<IValidator<JobApplicationCreateDto>>();
+			_updateValidatorMock = new Mock<IValidator<JobApplicationUpdateDto>>();
+
+			// Default: validators succeed
+			_createValidatorMock
+				 .Setup(v => v.ValidateAsync(It.IsAny<JobApplicationCreateDto>(), default))
+				 .ReturnsAsync(new ValidationResult());
+
+			_updateValidatorMock
+				 .Setup(v => v.ValidateAsync(It.IsAny<JobApplicationUpdateDto>(), default))
+				 .ReturnsAsync(new ValidationResult());
+
+			_service = new JobApplicationService(
+				 _repositoryMock.Object,
+				 _createValidatorMock.Object,
+				 _updateValidatorMock.Object
+			);
 		}
 
 		[Fact]
 		public async Task CreateJobApplication_ShouldReturnCreatedApplication()
 		{
-			// Arrange
 			var userId = Guid.NewGuid();
 			var dto = new JobApplicationCreateDto
 			{
@@ -33,25 +52,6 @@ namespace JobTracker.UnitTests.Application
 				WorkStyle = WorkStyle.Remote,
 				WorkLocationState = "SP"
 			};
-
-			var createdApp = new JobApplication(
-				 userId,
-				 dto.ApplicationDate,
-				 dto.CompanyName,
-				 dto.JobTitle,
-				 dto.ContractType,
-				 dto.WorkStyle,
-				 dto.WorkLocationState
-			);
-
-			createdApp.UpdateFromDto(
-				 dto.CompanyName,
-				 dto.JobTitle,
-				 dto.SalaryExpectation,
-				 dto.JobOfferUrl,
-				 dto.Source,
-				 dto.Notes
-			);
 
 			_repositoryMock
 				 .Setup(r => r.AddAsync(It.IsAny<JobApplication>()))
@@ -73,25 +73,21 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task GetAllByUserAsync_ShouldReturnApplicationsForUser()
 		{
-			// Arrange
 			var userId = Guid.NewGuid();
 			var applications = new List<JobApplication>
-			{
-				new(userId, DateOnly.FromDateTime(DateTime.UtcNow), "Company A", "Dev", ContractType.CLT, WorkStyle.Remote, "SP"),
-				new(userId, DateOnly.FromDateTime(DateTime.UtcNow), "Company B", "QA", ContractType.PJ, WorkStyle.Hybrid, "RJ")
-			};
+				{
+					 new(userId, DateOnly.FromDateTime(DateTime.UtcNow), "Company A", "Dev", ContractType.CLT, WorkStyle.Remote, "SP"),
+					 new(userId, DateOnly.FromDateTime(DateTime.UtcNow), "Company B", "QA", ContractType.PJ, WorkStyle.Hybrid, "RJ")
+				};
 
 			_repositoryMock
 				 .Setup(r => r.GetAllByUserAsync(userId))
 				 .ReturnsAsync(applications);
 
-			// Act
 			var result = await _service.GetAllByUserAsync(userId);
 
-			// Assert
 			Assert.NotNull(result);
 			Assert.Equal(2, result.Count);
-
 			Assert.Collection(result,
 				 app =>
 				 {
@@ -115,7 +111,6 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task GetByIdAsync_ShouldReturnApplication_WhenExists()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
 			var userId = Guid.NewGuid();
 			var application = new JobApplication(
@@ -132,10 +127,8 @@ namespace JobTracker.UnitTests.Application
 				 .Setup(r => r.GetByIdAsync(appId))
 				 .ReturnsAsync(application);
 
-			// Act
 			var result = await _service.GetByIdAsync(appId);
 
-			// Assert
 			Assert.NotNull(result);
 			Assert.Equal(application.Id, result!.Id);
 			Assert.Equal(application.CompanyName, result.CompanyName);
@@ -150,17 +143,14 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task GetByIdAsync_ShouldReturnNull_WhenNotFound()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
 
 			_repositoryMock
 				 .Setup(r => r.GetByIdAsync(appId))
 				 .ReturnsAsync((JobApplication?)null);
 
-			// Act
 			var result = await _service.GetByIdAsync(appId);
 
-			// Assert
 			Assert.Null(result);
 			_repositoryMock.Verify(r => r.GetByIdAsync(appId), Times.Once);
 		}
@@ -168,7 +158,6 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task UpdateAsync_ShouldUpdateApplication_WhenExists()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
 			var userId = Guid.NewGuid();
 			var existingApp = new JobApplication(
@@ -191,16 +180,11 @@ namespace JobTracker.UnitTests.Application
 				Notes = "Updated notes"
 			};
 
-			_repositoryMock.Setup(r => r.GetByIdAsync(appId))
-								.ReturnsAsync(existingApp);
+			_repositoryMock.Setup(r => r.GetByIdAsync(appId)).ReturnsAsync(existingApp);
+			_repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<JobApplication>())).Returns(Task.CompletedTask);
 
-			_repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<JobApplication>()))
-								.Returns(Task.CompletedTask);
-
-			// Act
 			await _service.UpdateAsync(appId, updateDto);
 
-			// Assert
 			Assert.Equal(updateDto.CompanyName, existingApp.CompanyName);
 			Assert.Equal(updateDto.JobTitle, existingApp.JobTitle);
 			Assert.Equal(updateDto.SalaryExpectation, existingApp.SalaryExpectation);
@@ -215,17 +199,11 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task UpdateAsync_ShouldThrowException_WhenApplicationNotFound()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
-			var updateDto = new JobApplicationUpdateDto
-			{
-				CompanyName = "New Company"
-			};
+			var updateDto = new JobApplicationUpdateDto { CompanyName = "New Company" };
 
-			_repositoryMock.Setup(r => r.GetByIdAsync(appId))
-								.ReturnsAsync((JobApplication?)null);
+			_repositoryMock.Setup(r => r.GetByIdAsync(appId)).ReturnsAsync((JobApplication?)null);
 
-			// Act & Assert
 			await Assert.ThrowsAsync<Exception>(() => _service.UpdateAsync(appId, updateDto));
 
 			_repositoryMock.Verify(r => r.GetByIdAsync(appId), Times.Once);
@@ -235,7 +213,6 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task DeleteAsync_ShouldDeleteApplication_WhenExists()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
 			var userId = Guid.NewGuid();
 			var existingApp = new JobApplication(
@@ -248,16 +225,11 @@ namespace JobTracker.UnitTests.Application
 				 "SP"
 			);
 
-			_repositoryMock.Setup(r => r.GetByIdAsync(appId))
-								.ReturnsAsync(existingApp);
+			_repositoryMock.Setup(r => r.GetByIdAsync(appId)).ReturnsAsync(existingApp);
+			_repositoryMock.Setup(r => r.DeleteAsync(existingApp)).Returns(Task.CompletedTask);
 
-			_repositoryMock.Setup(r => r.DeleteAsync(existingApp))
-								.Returns(Task.CompletedTask);
-
-			// Act
 			await _service.DeleteAsync(appId);
 
-			// Assert
 			_repositoryMock.Verify(r => r.GetByIdAsync(appId), Times.Once);
 			_repositoryMock.Verify(r => r.DeleteAsync(existingApp), Times.Once);
 		}
@@ -265,13 +237,9 @@ namespace JobTracker.UnitTests.Application
 		[Fact]
 		public async Task DeleteAsync_ShouldThrowException_WhenApplicationNotFound()
 		{
-			// Arrange
 			var appId = Guid.NewGuid();
+			_repositoryMock.Setup(r => r.GetByIdAsync(appId)).ReturnsAsync((JobApplication?)null);
 
-			_repositoryMock.Setup(r => r.GetByIdAsync(appId))
-								.ReturnsAsync((JobApplication?)null);
-
-			// Act & Assert
 			await Assert.ThrowsAsync<Exception>(() => _service.DeleteAsync(appId));
 
 			_repositoryMock.Verify(r => r.GetByIdAsync(appId), Times.Once);
